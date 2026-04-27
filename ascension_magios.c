@@ -11,7 +11,19 @@
 #define ALTARES 'A'
 #define RUNAS 'U'
 
-// --- FUNCIONES AUXILIARES PRIVADAS (ETAPA 3) ---
+// --- FUNCIONES AUXILIARES PRIVADAS ---
+
+/*
+ * Post: Indica si la coordenada objetivo existe en el vector de coordenadas dado.
+ */
+static bool buscar_coordenada(coordenada_t objetivo, coordenada_t vector[], int tope) {
+    for (int i = 0; i < tope; i++) {
+        if (vector[i].fil == objetivo.fil && vector[i].col == objetivo.col) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /*
  * Post: Desplaza los elementos del vector camino hacia la izquierda desde el indice dado
@@ -32,14 +44,14 @@ static void relocalizar_pergamino(juego_t* juego) {
     int indice_random;
     bool posicion_valida = false;
 
+    // Solo relocalizamos si hay espacio (el camino tiene más que inicio y fin)
+    if (nivel->tope_camino <= 2) return;
+
     while (!posicion_valida) {
         indice_random = rand() % nivel->tope_camino;
-        coordenada_t posible_pos = nivel->camino[indice_random];
-
-        // Validamos que no sea la Runa (inicio) ni el Altar (final)
-        // El enunciado implica que Runa y Altar están en los extremos del vector camino.
+        // La Runa está en indice 0 y el Altar en tope_camino - 1
         if (indice_random != 0 && indice_random != (nivel->tope_camino - 1)) {
-            nivel->pergamino = posible_pos;
+            nivel->pergamino = nivel->camino[indice_random];
             posicion_valida = true;
         }
     }
@@ -57,14 +69,14 @@ static void verificar_herramientas(juego_t* juego) {
         juego->homero.recolecto_pergamino = true;
     }
 
-    // 2. Verificar Tótems (Búsqueda lineal en el vector de herramientas)
+    // 2. Verificar Tótems
     for (int i = 0; i < nivel->tope_herramientas; i++) {
         if (juego->homero.posicion.fil == nivel->herramientas[i].posicion.fil &&
             juego->homero.posicion.col == nivel->herramientas[i].posicion.col) {
             
             if (nivel->herramientas[i].tipo == HERRAMIENTA_TOTEM) {
                 juego->homero.vidas_restantes++;
-                // Eliminar tótem para que no se use infinitamente (Swap con el último)
+                // Eliminar tótem (Swap con el último)
                 nivel->herramientas[i] = nivel->herramientas[nivel->tope_herramientas - 1];
                 (nivel->tope_herramientas)--;
             }
@@ -85,16 +97,14 @@ static void verificar_obstaculos(juego_t* juego) {
             juego->homero.posicion.col == nivel->obstaculos[i].posicion.col) {
             
             relocalizar_pergamino(juego);
-            // La piedra se rompe y desaparece
+            // Eliminar piedra (Swap con el último)
             nivel->obstaculos[i] = nivel->obstaculos[nivel->tope_obstaculos - 1];
             (nivel->tope_obstaculos)--;
         }
     }
 
     // 2. Lógica de Catapulta (si está activa por Runa o Hechizo)
-    // Nota: Esta lógica se dispara según el estado del juego. 
-    // Aquí implementamos el efecto de "borrar baldosa".
-    if (juego->camino_visible) { // Simplificación: si el camino se ve, la catapulta puede tirar.
+    if (juego->camino_visible) {
         int indice_a_borrar = rand() % nivel->tope_camino;
         // No borramos ni el inicio ni el final para no romper el juego
         if (indice_a_borrar != 0 && indice_a_borrar != (nivel->tope_camino - 1)) {
@@ -103,35 +113,25 @@ static void verificar_obstaculos(juego_t* juego) {
     }
 }
 
-// --- ACTUALIZACIÓN DE REALIZAR_JUGADA (ETAPA 3) ---
-
 void realizar_jugada(juego_t* juego, char movimiento) {
     if (juego == NULL) return;
 
     nivel_t* nivel_actual = &(juego->niveles[juego->nivel_actual - 1]);
     coordenada_t proxima_pos = juego->homero.posicion;
 
-    // Movimiento (W, A, S, D)
     if (movimiento == 'W' || movimiento == 'w') proxima_pos.fil--;
     else if (movimiento == 'S' || movimiento == 's') proxima_pos.fil++;
     else if (movimiento == 'A' || movimiento == 'a') proxima_pos.col--;
     else if (movimiento == 'D' || movimiento == 'd') proxima_pos.col++;
     else return;
 
-    // Validación de límites y paredes
     if (proxima_pos.fil >= 0 && proxima_pos.fil < MAX_FILAS && 
         proxima_pos.col >= 0 && proxima_pos.col < MAX_COLUMNAS) {
         
-        // Uso de la función estática del Paso 2
-        // (Nota: Asegurate de que buscar_coordenada esté declarada arriba)
-        // if (!buscar_coordenada(proxima_pos, nivel_actual->paredes, nivel_actual->tope_paredes)) { ... }
-        
-        // ... (Aquí iría tu código de movimiento de la Etapa 2) ...
-        juego->homero.posicion = proxima_pos;
-
-        // --- NUEVA LÓGICA ETAPA 3 ---
-        verificar_herramientas(juego);
-        verificar_obstaculos(juego);
-        // ----------------------------
+        if (!buscar_coordenada(proxima_pos, nivel_actual->paredes, nivel_actual->tope_paredes)) {
+             juego->homero.posicion = proxima_pos;
+             verificar_herramientas(juego);
+             verificar_obstaculos(juego);
+        }
     }
 }
